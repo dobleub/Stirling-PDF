@@ -10,4 +10,5 @@ public enum SortTypes {
     REMOVE_FIRST,
     REMOVE_LAST,
     REMOVE_FIRST_AND_LAST,
+    HALF_SPLIT,
 }

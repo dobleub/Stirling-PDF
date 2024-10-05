@@ -176,6 +176,28 @@ public class RearrangePagesPDFController {
         return newPageOrderZeroBased;
     }
 
+    private int findNextMultipleOfFour(int n) {
+        return n + (4 - n % 4) % 4;
+    }
+
+    /**
+     *
+     * @param totalPages Total number of pages in the PDF file.
+     * @return List of page numbers in the new order. The first page is 0.
+     */
+    private List<Integer> halfSheetSplit(int totalPages) {
+        List<Integer> newPageOrder = new ArrayList<>();
+
+        // Find the next multiple of 4 after the total number of pages
+        int nextMultipleOfFour = findNextMultipleOfFour(totalPages);
+        for (int i = totalPages; i < nextMultipleOfFour; i++) {
+            // Add new blank pages to make the total number of pages a multiple of 4
+            newPageOrder.add(i);
+        }
+
+        return newPageOrder;
+    }
+
     private List<Integer> processSortTypes(String sortTypes, int totalPages) {
         try {
             SortTypes mode = SortTypes.valueOf(sortTypes.toUpperCase());
@@ -198,6 +220,8 @@ public class RearrangePagesPDFController {
                     return removeLast(totalPages);
                 case REMOVE_FIRST_AND_LAST:
                     return removeFirstAndLast(totalPages);
+                case HALF_SPLIT:
+                    return halfSheetSplit(totalPages);
                 default:
                     throw new IllegalArgumentException("Unsupported custom mode");
             }
