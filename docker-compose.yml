@@ -3,12 +3,15 @@ services:
 #    image: frooodle/s-pdf:latest
     build:
       context: .
-      dockerfile: Dockerfile-fat
+      dockerfile: Dockerfile-superfat
+      args:
+        - VERSION_TAG=latest
     container_name: stirling-pdf
+    restart: unless-stopped
     ports:
       - '8090:8080'
     volumes:
-      - ./:/home/stirlingpdfuser
+      - ./:/app
       - ./trainingData:/usr/share/tessdata #Required for extra OCR languages
       - ./extraConfigs:/configs
 #      - ./customFiles:/customFiles/
@@ -18,3 +21,8 @@ services:
       - INSTALL_BOOK_AND_ADVANCED_HTML_OPS=false
       - LANGS=es_ES
       - TESSERACT_LANGS=eng+spa
+    networks:
+      - host
+
+networks:
+    host:
