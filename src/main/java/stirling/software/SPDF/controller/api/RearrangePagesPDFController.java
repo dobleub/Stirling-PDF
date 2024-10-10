@@ -177,8 +177,8 @@ public class RearrangePagesPDFController {
     }
 
     /**
-     * Find next multiple of 4
-     * If n is a multiple of 4, return n
+     * Find next multiple of 4 If n is a multiple of 4, return n
+     *
      * @param n current number to find next multiple of 4
      * @return int - next multiple of 4
      */
@@ -187,12 +187,12 @@ public class RearrangePagesPDFController {
     }
 
     /**
-     * Rearrange pages in a PDF file to print half sheet booklet.
-     * If the total number of pages is not a multiple of 4, add blank pages to make it a multiple of 4.
-     * Ex 1. If the total number of pages is 5, add 3 blank pages to make it 8 and rearrange the pages as:
-     * blank, 1, 2, blank, blank, 3, 4, 5
-     * Ex 2. If the total number of pages is 16, rearrange the pages as:
-     * 16, 1, 2, 15, 14, 3, 4, 13, 12, 5, 6, 11, 10, 7, 8, 9
+     * Rearrange pages in a PDF file to print half sheet booklet. If the total number of pages is
+     * not a multiple of 4, add blank pages to make it a multiple of 4. Ex 1. If the total number of
+     * pages is 5, add 3 blank pages to make it 8 and rearrange the pages as: blank, 1, 2, blank,
+     * blank, 3, 4, 5 Ex 2. If the total number of pages is 16, rearrange the pages as: 16, 1, 2,
+     * 15, 14, 3, 4, 13, 12, 5, 6, 11, 10, 7, 8, 9
+     *
      * @param totalPages Total number of pages in the PDF file.
      * @return List of page numbers in the new order.
      */
