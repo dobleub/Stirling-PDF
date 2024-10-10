@@ -161,3 +161,11 @@ out/
 .pytest_cache
 .ipynb_checkpoints
 
+
+.fake
+
+# Ignore all optional folders
+trainingData
+extraConfigs
+customFiles
+logs
