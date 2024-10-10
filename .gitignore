@@ -163,3 +163,9 @@ out/
 
 
 .fake
+
+# Ignore all optional folders
+trainingData
+extraConfigs
+customFiles
+logs
