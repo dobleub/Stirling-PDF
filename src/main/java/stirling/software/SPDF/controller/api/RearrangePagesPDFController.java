@@ -176,6 +176,43 @@ public class RearrangePagesPDFController {
         return newPageOrderZeroBased;
     }
 
+    /**
+     * Find next multiple of 4
+     * If n is a multiple of 4, return n
+     * @param n current number to find next multiple of 4
+     * @return int - next multiple of 4
+     */
+    private int findNextMultipleOfFour(int n) {
+        return n + (4 - n % 4) % 4;
+    }
+
+    /**
+     * Rearrange pages in a PDF file to print half sheet booklet.
+     * If the total number of pages is not a multiple of 4, add blank pages to make it a multiple of 4.
+     * Ex 1. If the total number of pages is 5, add 3 blank pages to make it 8 and rearrange the pages as:
+     * blank, 1, 2, blank, blank, 3, 4, 5
+     * Ex 2. If the total number of pages is 16, rearrange the pages as:
+     * 16, 1, 2, 15, 14, 3, 4, 13, 12, 5, 6, 11, 10, 7, 8, 9
+     * @param totalPages Total number of pages in the PDF file.
+     * @return List of page numbers in the new order.
+     */
+    private List<Integer> bookletHalfSheetSort(int totalPages) {
+        List<Integer> newPageOrder = new ArrayList<>();
+        int nextMultipleOfFour = findNextMultipleOfFour(totalPages);
+
+        for (int i = 0; i < nextMultipleOfFour / 2; i++) {
+            if (i % 2 == 0) {
+                newPageOrder.add(totalPages - i - 1);
+                newPageOrder.add(i);
+            } else {
+                newPageOrder.add(i);
+                newPageOrder.add(totalPages - i - 1);
+            }
+        }
+
+        return newPageOrder;
+    }
+
     private List<Integer> processSortTypes(String sortTypes, int totalPages) {
         try {
             SortTypes mode = SortTypes.valueOf(sortTypes.toUpperCase());
@@ -198,6 +235,8 @@ public class RearrangePagesPDFController {
                     return removeLast(totalPages);
                 case REMOVE_FIRST_AND_LAST:
                     return removeFirstAndLast(totalPages);
+                case BOOKLET_HALF_SHEET_SORT:
+                    return bookletHalfSheetSort(totalPages);
                 default:
                     throw new IllegalArgumentException("Unsupported custom mode");
             }
