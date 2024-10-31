@@ -230,6 +230,9 @@
                           th:replace="~{fragments/navbarEntry :: navbarEntry ('split-pdf-by-sections', 'grid_on', 'home.split-by-sections.title', 'home.split-by-sections.desc', 'split-by-sections.tags', 'advance')}">
                         </div>
                         <div
+                                th:replace="~{fragments/navbarEntry :: navbarEntry ('split-pdf-by-chapters', 'book', 'home.splitPdfByChapters.title', 'home.splitPdfByChapters.desc', 'splitPdfByChapters.tags', 'advance')}">
+                        </div>
+                        <div
                           th:replace="~{fragments/navbarEntry :: navbarEntry ('split-by-size-or-count', 'vertical_split', 'home.autoSizeSplitPDF.title', 'home.autoSizeSplitPDF.desc', 'autoSizeSplitPDF.tags', 'advance')}">
                         </div>
                         <div
@@ -348,13 +351,19 @@
             </a>
             <div class="dropdown-menu dropdown-menu-tp" aria-labelledby="searchDropdown">
               <div class="dropdown-menu-wrapper px-xl-2 px-2">
-                <form class="d-flex p-2 search-form" id="searchForm">
+                <form th:action="@{''}" class="d-flex p-2 search-form" id="searchForm">
                   <input class="form-control search-input" type="search" placeholder="Search" aria-label="Search" id="navbarSearchInput">
                 </form>
                 <!-- Search Results -->
                 <div id="searchResults" class="search-results scrollable-y dropdown-mw-20"></div>
               </div>
             </div>
+          </li>
+
+          <li class="nav-item" th:if="${!@runningEE}">
+            <a href="https://stirlingpdf.com/pricing" class="nav-link go-pro-link" target="_blank" rel="noopener noreferrer">
+        <span class="go-pro-badge" th:text="#{enterpriseEdition.button}"></span>
+            </a>
           </li>
 
           <li class="nav-item">

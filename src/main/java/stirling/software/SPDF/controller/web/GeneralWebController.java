@@ -31,6 +31,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+import stirling.software.SPDF.controller.api.pipeline.UserServiceInterface;
+import stirling.software.SPDF.model.SignatureFile;
+import stirling.software.SPDF.service.SignatureService;
+
 @Controller
 @Tag(name = "General", description = "General APIs")
 public class GeneralWebController {
@@ -108,6 +112,13 @@ public class GeneralWebController {
         return "split-pdf-by-sections";
     }
 
+    @GetMapping("/split-pdf-by-chapters")
+    @Hidden
+    public String splitPdfByChapters(Model model) {
+        model.addAttribute("currentPage", "split-pdf-by-chapters");
+        return "split-pdf-by-chapters";
+    }
+
     @GetMapping("/view-pdf")
     @Hidden
     public String ViewPdfForm2(Model model) {
@@ -164,11 +175,28 @@ public class GeneralWebController {
         return "split-pdfs";
     }
 
+    private static final String SIGNATURE_BASE_PATH = "customFiles/static/signatures/";
+    private static final String ALL_USERS_FOLDER = "ALL_USERS";
+
+    @Autowired private SignatureService signatureService;
+
+    @Autowired(required = false)
+    private UserServiceInterface userService;
+
     @GetMapping("/sign")
     @Hidden
     public String signForm(Model model) {
+        String username = "";
+        if (userService != null) {
+            username = userService.getCurrentUsername();
+        }
+
+        // Get signatures from both personal and ALL_USERS folders
+        List<SignatureFile> signatures = signatureService.getAvailableSignatures(username);
+
         model.addAttribute("currentPage", "sign");
         model.addAttribute("fonts", getFontNames());
+        model.addAttribute("signatures", signatures);
         return "sign";
     }
 
