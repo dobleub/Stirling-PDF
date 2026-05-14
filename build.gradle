@@ -1,265 +1,618 @@
 plugins {
     id "java"
-    id "org.springframework.boot" version "3.3.5"
-    id "io.spring.dependency-management" version "1.1.6"
-    id "org.springdoc.openapi-gradle-plugin" version "1.8.0"
+    id "jacoco"
+    id "io.spring.dependency-management" version "1.1.7"
+    id "org.springframework.boot" version "4.0.6"
+    id "org.springdoc.openapi-gradle-plugin" version "1.9.0"
     id "io.swagger.swaggerhub" version "1.3.2"
-    id "edu.sc.seis.launch4j" version "3.0.6"
-    id "com.diffplug.spotless" version "6.25.0"
-    id "com.github.jk1.dependency-license-report" version "2.9"
-	//id "nebula.lint" version "19.0.3"
+    id "com.diffplug.spotless" version "8.4.0"
+    id "com.github.jk1.dependency-license-report" version "3.1.2"
+    //id "nebula.lint" version "19.0.3"
+    id "org.sonarqube" version "7.2.3.7755"
 }
 
 import com.github.jk1.license.render.*
+import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
+import groovy.xml.XmlSlurper
+import org.gradle.api.JavaVersion
+import org.gradle.api.tasks.testing.Test
+import org.gradle.jvm.toolchain.JavaLanguageVersion
 
 ext {
-    springBootVersion = "3.3.5"
-    pdfboxVersion = "3.0.3"
-    logbackVersion = "1.5.7"
-    imageioVersion = "3.12.0"
-    lombokVersion = "1.18.34"
-    bouncycastleVersion = "1.78.1"
+    springBootVersion = "4.0.6"
+    pdfboxVersion = "3.0.7"
+    imageioVersion = "3.13.1"
+    lombokVersion = "1.18.46"
+    bouncycastleVersion = "1.83"
+    springSecuritySamlVersion = "7.0.5"
+    openSamlVersion = "5.2.1"
+    commonmarkVersion = "0.28.0"
+    googleJavaFormatVersion = "1.28.0"
+    logback = "1.5.32"
+    // junit-platform-launcher version managed by Spring Boot BOM
+    modernJavaVersion = 21
 }
-
-group = "stirling.software"
-version = "0.31.1"
 
 java {
-    // 17 is lowest but we support and recommend 21
-    sourceCompatibility = JavaVersion.VERSION_17
-}
-
-repositories {
-    mavenCentral()
-    maven { url "https://jitpack.io" }
-    maven { url "https://build.shibboleth.net/nexus/content/repositories/releases/" }
-    maven {
-        url 'https://build.shibboleth.net/maven/releases'
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(project.findProperty('javaVersion')?.toString() ?: '25')
     }
 }
 
-licenseReport {
-    renderers = [new JsonReportRenderer()]
+ext.isSecurityDisabled = { ->
+    System.getenv('DOCKER_ENABLE_SECURITY') == 'false' ||
+    System.getenv('DISABLE_ADDITIONAL_FEATURES') == 'true' ||
+    (project.hasProperty('DISABLE_ADDITIONAL_FEATURES') &&
+     System.getProperty('DISABLE_ADDITIONAL_FEATURES') == 'true')
 }
 
-sourceSets {
-    main {
-        java {
-            if (System.getenv("DOCKER_ENABLE_SECURITY") == "false") {
-                exclude "stirling/software/SPDF/config/security/**"
-                exclude "stirling/software/SPDF/controller/api/UserController.java"
-                exclude "stirling/software/SPDF/controller/api/DatabaseController.java"
-                exclude "stirling/software/SPDF/controller/web/AccountWebController.java"
-                exclude "stirling/software/SPDF/controller/web/DatabaseWebController.java"
-                exclude "stirling/software/SPDF/model/ApiKeyAuthenticationToken.java"
-                exclude "stirling/software/SPDF/model/AttemptCounter.java"
-                exclude "stirling/software/SPDF/model/Authority.java"
-                exclude "stirling/software/SPDF/model/PersistentLogin.java"
-                exclude "stirling/software/SPDF/model/SessionEntity.java"
-                exclude "stirling/software/SPDF/model/User.java"
-                exclude "stirling/software/SPDF/repository/**"
-            }
-        }
-    }
-}
+ext.mavenUrl = System.getenv("MAVEN_PUBLIC_URL") ?: ""
+ext.username = System.getenv('MAVEN_USER') ?: ""
+ext.password = System.getenv('MAVEN_PASSWORD') ?: ""
 
-openApi {
-    apiDocsUrl = "http://localhost:8080/v1/api-docs"
-    outputDir = file("$projectDir")
-    outputFileName = "SwaggerDoc.json"
-}
-
-launch4j {
-    icon = "${projectDir}/src/main/resources/static/favicon.ico"
-
-    outfile="Stirling-PDF.exe"
-    headerType="console"
-    jarTask = tasks.bootJar
-
-    errTitle="Encountered error, Do you have Java 21?"
-    downloadUrl="https://download.oracle.com/java/21/latest/jdk-21_windows-x64_bin.exe"
-    variables=["BROWSER_OPEN=true", "ENDPOINTS_GROUPS_TO_REMOVE=CLI"]
-    jreMinVersion="17"
-
-    mutexName="Stirling-PDF"
-    windowTitle="Stirling-PDF"
-
-    messagesStartupError="An error occurred while starting Stirling-PDF"
-    // messagesJreNotFoundError="This application requires a Java Runtime Environment, Please download Java 17."
-    messagesJreVersionError="You are running the wrong version of Java, Please download Java 21."
-    messagesLauncherError="Java is corrupted. Please uninstall and then install  Java 21."
-    messagesInstanceAlreadyExists="Stirling-PDF is already running."
-}
-
-spotless {
-    java {
-        target project.fileTree('src/main/java')
-
-        googleJavaFormat("1.22.0").aosp().reorderImports(false)
-
-        importOrder("java", "javax", "org", "com", "net", "io")
-        toggleOffOn()
-        trimTrailingWhitespace()
-        indentWithSpaces()
-        endWithNewline()
-    }
-}
-
-//gradleLint {
-//        rules=['unused-dependency']
-//    }
-tasks.wrapper {
-    gradleVersion = "8.7"
-}
-//tasks.withType(JavaCompile) {
-//    options.compilerArgs << "-Xlint:deprecation"
-//}
-configurations.all {
-    exclude group: "org.springframework.boot", module: "spring-boot-starter-tomcat"
-}
-dependencies {
-    //security updates
-    implementation "org.springframework:spring-webmvc:6.1.14"
-
-    implementation("io.github.pixee:java-security-toolkit:1.2.0")
-
-    // implementation "org.yaml:snakeyaml:2.2"
-    implementation 'com.github.Carleslc.Simple-YAML:Simple-Yaml:1.8.4'
-
-    // Exclude Tomcat and include Jetty
-    implementation("org.springframework.boot:spring-boot-starter-web:$springBootVersion")
-    implementation "org.springframework.boot:spring-boot-starter-jetty:$springBootVersion"
-
-    implementation "org.springframework.boot:spring-boot-starter-thymeleaf:$springBootVersion"
-    implementation 'com.posthog.java:posthog:1.1.1'
-    implementation 'com.googlecode.owasp-java-html-sanitizer:owasp-java-html-sanitizer:20240325.1'
-
-
-    if (System.getenv("DOCKER_ENABLE_SECURITY") != "false") {
-        implementation "org.springframework.boot:spring-boot-starter-security:$springBootVersion"
-        implementation "org.thymeleaf.extras:thymeleaf-extras-springsecurity5:3.1.2.RELEASE"
-        implementation "org.springframework.boot:spring-boot-starter-data-jpa:$springBootVersion"
-        implementation "org.springframework.boot:spring-boot-starter-oauth2-client:$springBootVersion"
-
-		implementation 'org.springframework.security:spring-security-saml2-service-provider:6.3.4'
-	    implementation 'com.unboundid.product.scim2:scim2-sdk-client:2.3.5'
-        //2.2.x requires rebuild of DB file.. need migration path
-        runtimeOnly "com.h2database:h2:2.1.214"
-        // implementation "com.h2database:h2:2.2.224"
-        constraints {
-            implementation "org.opensaml:opensaml-core"
-            implementation "org.opensaml:opensaml-saml-api"
-            implementation "org.opensaml:opensaml-saml-impl"
-        }
-        implementation "org.springframework.security:spring-security-saml2-service-provider"
-
-        implementation 'com.coveo:saml-client:5.0.0'
-
-
-    }
-
-    testImplementation "org.springframework.boot:spring-boot-starter-test:$springBootVersion"
-
-    // Batik
-    implementation "org.apache.xmlgraphics:batik-all:1.18"
-
-    // TwelveMonkeys
-    runtimeOnly "com.twelvemonkeys.imageio:imageio-batik:$imageioVersion"
-    runtimeOnly "com.twelvemonkeys.imageio:imageio-bmp:$imageioVersion"
-    // runtimeOnly "com.twelvemonkeys.imageio:imageio-hdr:$imageioVersion"
-    // runtimeOnly "com.twelvemonkeys.imageio:imageio-icns:$imageioVersion"
-    // runtimeOnly "com.twelvemonkeys.imageio:imageio-iff:$imageioVersion"
-    runtimeOnly "com.twelvemonkeys.imageio:imageio-jpeg:$imageioVersion"
-    // runtimeOnly "com.twelvemonkeys.imageio:imageio-pcx:$imageioVersion@
-    // runtimeOnly "com.twelvemonkeys.imageio:imageio-pict:$imageioVersion"
-    // runtimeOnly "com.twelvemonkeys.imageio:imageio-pnm:$imageioVersion"
-    // runtimeOnly "com.twelvemonkeys.imageio:imageio-psd:$imageioVersion"
-    // runtimeOnly "com.twelvemonkeys.imageio:imageio-sgi:$imageioVersion"
-    // runtimeOnly "com.twelvemonkeys.imageio:imageio-tga:$imageioVersion"
-    // runtimeOnly "com.twelvemonkeys.imageio:imageio-thumbsdb:$imageioVersion"
-    runtimeOnly "com.twelvemonkeys.imageio:imageio-tiff:$imageioVersion"
-    runtimeOnly "com.twelvemonkeys.imageio:imageio-webp:$imageioVersion"
-    // runtimeOnly "com.twelvemonkeys.imageio:imageio-xwd:$imageioVersion"
-
-    // Image metadata extractor
-    implementation "com.drewnoakes:metadata-extractor:2.19.0"
-
-    implementation "commons-io:commons-io:2.17.0"
-    implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:2.2.0"
-    //general PDF
-
-    // https://mvnrepository.com/artifact/com.opencsv/opencsv
-    implementation ("com.opencsv:opencsv:5.9") {
-        exclude group: "commons-logging", module: "commons-logging"
-    }
-
-    implementation ("org.apache.pdfbox:pdfbox:$pdfboxVersion") {
-        exclude group: "commons-logging", module: "commons-logging"
-    }
-
-    implementation ("org.apache.pdfbox:xmpbox:$pdfboxVersion") {
-        exclude group: "commons-logging", module: "commons-logging"
-    }
-
-    implementation 'org.apache.pdfbox:jbig2-imageio:3.0.4'
-
-    implementation "org.bouncycastle:bcprov-jdk18on:$bouncycastleVersion"
-    implementation "org.bouncycastle:bcpkix-jdk18on:$bouncycastleVersion"
-    implementation "org.springframework.boot:spring-boot-starter-actuator:$springBootVersion"
-    implementation "io.micrometer:micrometer-core:1.13.6"
-    implementation group: "com.google.zxing", name: "core", version: "3.5.3"
-    // https://mvnrepository.com/artifact/org.commonmark/commonmark
-    implementation "org.commonmark:commonmark:0.24.0"
-    implementation "org.commonmark:commonmark-ext-gfm-tables:0.24.0"
-    // https://mvnrepository.com/artifact/com.bucket4j/bucket4j_jdk17
-    implementation "com.bucket4j:bucket4j_jdk17-core:8.14.0"
-    implementation "com.fathzer:javaluator:3.0.5"
-
-    developmentOnly("org.springframework.boot:spring-boot-devtools:$springBootVersion")
-    compileOnly "org.projectlombok:lombok:$lombokVersion"
-    annotationProcessor "org.projectlombok:lombok:$lombokVersion"
-
-    testRuntimeOnly 'org.mockito:mockito-inline:5.2.0'
-}
-
-tasks.withType(JavaCompile).configureEach {
-    options.encoding = "UTF-8"
-    dependsOn "spotlessApply"
-}
-compileJava {
-    options.compilerArgs << "-parameters"
-}
-
-task writeVersion {
-    def propsFile = file("src/main/resources/version.properties")
-    def props = new Properties()
-    props.setProperty("version", version)
-    props.store(propsFile.newWriter(), null)
-}
-
-swaggerhubUpload {
-    //dependsOn generateOpenApiDocs  // Depends on your task generating Swagger docs
-    api "Stirling-PDF"  // The name of your API on SwaggerHub
-    owner "Frooodle"  // Your SwaggerHub username (or organization name)
-    version project.version  // The version of your API
-    inputFile "./SwaggerDoc.json"  // The path to your Swagger docs
-    token  "${System.getenv("SWAGGERHUB_API_KEY")}"  // Your SwaggerHub API key, passed as an environment variable
-    oas "3.0.0"  // The version of the OpenAPI Specification you"re using
+if (rootProject.ext.mavenUrl.isEmpty()) {
+    println "No custom MAVEN_PUBLIC_URL set, defaulting to Maven Central"
+} else {
+    println "MAVEN_PUBLIC_URL set"
 }
 
 jar {
     enabled = false
     manifest {
         attributes "Implementation-Title": "Stirling-PDF",
-                   "Implementation-Version": project.version
+            "Implementation-Version": project.version
+    }
+}
+
+bootJar {
+    enabled = false
+}
+
+// Configure main class for the root project
+springBoot {
+    mainClass = 'stirling.software.SPDF.SPDFApplication'
+}
+
+allprojects {
+    group = 'stirling.software'
+    version = '2.11.0'
+
+    configurations.configureEach {
+        exclude group: "org.springframework.boot", module: "spring-boot-starter-tomcat"
+    }
+}
+
+def appVersionStr = project.version.toString()
+def tauriConfigPath = layout.projectDirectory.file('frontend/src-tauri/tauri.conf.json').asFile.path
+def sim1Path = layout.projectDirectory.file('frontend/src/core/testing/serverExperienceSimulations.ts').asFile.path
+def sim2Path = layout.projectDirectory.file('frontend/src/proprietary/testing/serverExperienceSimulations.ts').asFile.path
+def aurDesktopPkgbuildPath = layout.projectDirectory.file('.github/aur/stirling-pdf-desktop/PKGBUILD').asFile.path
+def aurServerPkgbuildPath = layout.projectDirectory.file('.github/aur/stirling-pdf-server-bin/PKGBUILD').asFile.path
+
+tasks.register('syncAppVersion') {
+    group = 'versioning'
+    description = 'Synchronizes app version across desktop, simulation, and AUR PKGBUILD configs.'
+
+    doLast {
+        println "Synchronizing application version to ${appVersionStr}"
+
+        def tauriConfigFile = new File(tauriConfigPath)
+        if (tauriConfigFile.exists()) {
+            def parsed = new groovy.json.JsonSlurper().parse(tauriConfigFile)
+            parsed.version = appVersionStr
+            def formatted = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(parsed)) + System.lineSeparator()
+            if (tauriConfigFile.getText('UTF-8') != formatted) {
+                tauriConfigFile.write(formatted, 'UTF-8')
+            }
+        }
+
+        [new File(sim1Path), new File(sim2Path)].each { f ->
+            if (f.exists()) {
+                def content = f.getText('UTF-8')
+                def matcher = (content =~ /(appVersion:\s*(['"]))(.*?)(\2)/)
+                if (!matcher.find()) {
+                    throw new GradleException("Could not locate appVersion in ${f} for synchronization")
+                }
+                def updatedContent = matcher.replaceFirst("${matcher.group(1)}${appVersionStr}${matcher.group(4)}")
+                if (content != updatedContent) {
+                    f.write(updatedContent, 'UTF-8')
+                }
+            }
+        }
+
+        [new File(aurDesktopPkgbuildPath), new File(aurServerPkgbuildPath)].each { f ->
+            if (f.exists()) {
+                def content = f.getText('UTF-8')
+                def matcher = (content =~ /(?m)^(pkgver=)(.*)$/)
+                if (!matcher.find()) {
+                    throw new GradleException("Could not locate pkgver in ${f} for synchronization")
+                }
+                def updatedContent = matcher.replaceFirst("\$1${appVersionStr}")
+                if (content != updatedContent) {
+                    f.write(updatedContent, 'UTF-8')
+                }
+            }
+        }
+    }
+}
+
+tasks.register('writeVersion', WriteProperties) {
+    destinationFile = layout.projectDirectory.file('app/common/src/main/resources/version.properties')
+    println "Writing version.properties to ${destinationFile.get().asFile.path}"
+    comment = "${new Date()}"
+    property 'version', project.provider { project.version.toString() }
+}
+
+subprojects {
+    apply plugin: 'java'
+    apply plugin: 'java-library'
+    apply plugin: 'com.diffplug.spotless'
+    apply plugin: 'org.springframework.boot'
+    apply plugin: 'io.spring.dependency-management'
+    apply plugin: 'jacoco'
+
+    java {
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(25)
+        }
     }
 
+    if (project.name != "stirling-pdf") {
+        bootJar {
+            enabled = false
+        }
+    }
+
+    repositories {
+        if (!rootProject.ext.mavenUrl.isEmpty()) {
+            maven {
+                url = rootProject.ext.mavenUrl + '/releases'
+                credentials(PasswordCredentials) {
+                    username = rootProject.ext.username
+                    password = rootProject.ext.password
+                }
+                authentication {
+                    basic(BasicAuthentication)
+                }
+                allowInsecureProtocol = true
+            }
+        }
+        maven { url = "https://build.shibboleth.net/maven/releases" }
+        maven { url = "https://repository.jboss.org/" }
+        mavenCentral()
+    }
+
+    configurations.configureEach {
+        exclude group: 'org.springframework.boot', module: 'spring-boot-starter-tomcat'
+        // Exclude vulnerable BouncyCastle version used in tableau
+        exclude group: 'org.bouncycastle', module: 'bcpkix-jdk15on'
+        exclude group: 'org.bouncycastle', module: 'bcutil-jdk15on'
+        exclude group: 'org.bouncycastle', module: 'bcmail-jdk15on'
+
+
+        // Security CVE fixes - hardcoded resolution strategy to ensure safe versions
+        // Primary fixes via explicit dependencies in app/core/build.gradle:
+        // - CVE-2022-25647: gson 2.8.9+ (explicit dependency overrides tabula 2.8.7)
+        // - CVE-2025-66453: rhino 1.7.15 (explicit dependency overrides verapdf 1.7.13)
+        // Fallback strategy force declarations for additional safety:
+        resolutionStrategy.force 'com.google.code.gson:gson:2.13.2'
+        resolutionStrategy.force 'org.mozilla:rhino:1.9.1'
+        // CVE-2025-48924: commons-lang3 3.20.0 DoS prevention
+        resolutionStrategy.force 'org.apache.commons:commons-lang3:3.20.0'
+        // CVE-2024-47554: commons-io 2.21.0 DoS prevention
+        resolutionStrategy.force 'commons-io:commons-io:2.21.0'
+        // Bouncycastle 1.83 (from bouncycastleVersion variable)
+        resolutionStrategy.force 'org.bouncycastle:bcprov-jdk18on:1.83'
+        resolutionStrategy.force 'org.bouncycastle:bcpkix-jdk18on:1.83'
+    }
+
+    dependencyManagement {
+        imports {
+            mavenBom "org.springframework.boot:spring-boot-dependencies:$springBootVersion"
+        }
+        dependencies {
+            // Override BOM-managed commons-lang3 for CVE-2025-48924 fix
+            dependency 'org.apache.commons:commons-lang3:3.20.0'
+        }
+    }
+
+    dependencies {
+        implementation 'org.springframework.boot:spring-boot-starter-actuator'
+        implementation 'io.github.pixee:java-security-toolkit:1.2.3'
+
+        //tmp for security bumps
+        implementation "ch.qos.logback:logback-core:$logback"
+        implementation "ch.qos.logback:logback-classic:$logback"
+        compileOnly "org.projectlombok:lombok:$lombokVersion"
+        annotationProcessor "org.projectlombok:lombok:$lombokVersion"
+
+        // Jackson 3 (Spring Boot 4 uses tools.jackson)
+        implementation 'org.springframework.boot:spring-boot-starter-jackson'
+
+        testImplementation 'org.springframework.boot:spring-boot-starter-test'
+        testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+        testRuntimeOnly 'org.mockito:mockito-inline:5.2.0'
+        testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+
+        testImplementation platform("com.squareup.okhttp3:okhttp-bom:5.3.2")
+        testImplementation "com.squareup.okhttp3:mockwebserver"
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = "UTF-8"
+        options.release = rootProject.ext.modernJavaVersion
+        if (!project.hasProperty("noSpotless")) {
+            dependsOn "spotlessApply"
+        }
+    }
+
+    tasks.named("compileJava", JavaCompile).configure {
+        // options.compilerArgs.add("-Xlint:deprecation")
+        // options.compilerArgs.add("-Xlint:unchecked")
+    }
+
+    def jacocoReport = tasks.named("jacocoTestReport")
+
+    tasks.withType(Test).configureEach {
+        useJUnitPlatform()
+        finalizedBy(jacocoReport)
+    }
+
+    jacocoReport.configure {
+        dependsOn(tasks.named("test"))
+        reports {
+            xml.required.set(true)
+            csv.required.set(false)
+            html.required.set(true)
+        }
+        doLast {
+            def xmlReport = reports.xml.outputLocation.get().asFile
+            if (!xmlReport.exists()) {
+                logger.lifecycle("Jacoco coverage report not found at ${xmlReport}")
+                return
+            }
+
+            def xmlContent = xmlReport.getText("UTF-8")
+            xmlContent = xmlContent.replaceFirst('(?s)<!DOCTYPE.*?>', '')
+            def report = new XmlSlurper(false, false).parseText(xmlContent)
+            def counters = report.counter.collectEntries { counter ->
+                def type = counter.@type.text()
+                def covered = counter.@covered.text() as BigDecimal
+                def missed = counter.@missed.text() as BigDecimal
+                [(type): [covered: covered, missed: missed]]
+            }
+
+            def thresholds = [
+                    LINE       : 0.13,
+                    INSTRUCTION: 0.14,
+                    BRANCH     : 0.09
+            ]
+
+            def types = ["LINE", "INSTRUCTION", "BRANCH"]
+            def headers = ["Metric", "Coverage", "Covered/Total", "Status", "Target"]
+
+            def rows = types.collect { String type ->
+                def data = counters[type]
+                if (!data) {
+                    return [type, "—", "—", "No data", ""]
+                }
+
+                def total = data.covered + data.missed
+                if (total == 0) {
+                    return [type, "—", "0/${total.toBigInteger()}", "No executions", ""]
+                }
+
+                def ratio = data.covered / total * 100
+                def coverageText = String.format(Locale.ROOT, "%.2f%%", ratio)
+                def coveredText = String.format(Locale.ROOT, "%d/%d",
+                        data.covered.toBigInteger(),
+                        total.toBigInteger())
+
+                def threshold = thresholds[type]
+                def thresholdPercent = threshold != null ? threshold * 100 : null
+                def targetText = thresholdPercent != null ?
+                        String.format(Locale.ROOT, ">= %.2f%%", thresholdPercent) : ""
+                def passed = thresholdPercent != null ? ratio >= thresholdPercent : null
+                def statusText = passed == null ? "" : (passed ? "PASS" : "FAIL")
+
+                return [type, coverageText, coveredText, statusText, targetText]
+            }
+
+            def columnIndexes = (0..<headers.size())
+            def columnWidths = columnIndexes.collect { idx ->
+                Math.max(headers[idx].length(), rows.collect { row ->
+                    row[idx] != null ? row[idx].toString().length() : 0
+                }.max() ?: 0)
+            }
+
+            def formatRow = { List<String> values ->
+                columnIndexes.collect { idx ->
+                    def value = values[idx] ?: ""
+                    value.padRight(columnWidths[idx])
+                }.join(" | ")
+            }
+
+            def separator = columnIndexes.collect { idx ->
+                ''.padRight(columnWidths[idx], '-')
+            }.join("-+-")
+
+            logger.lifecycle("")
+            logger.lifecycle("==== JaCoCo Coverage Summary ====")
+            logger.lifecycle(formatRow(headers))
+            logger.lifecycle(separator)
+            rows.each { row ->
+                logger.lifecycle(formatRow(row))
+            }
+            logger.lifecycle(separator)
+
+            def htmlReport = reports.html.outputLocation.get().asFile
+            logger.lifecycle("Detailed HTML report available at: ${htmlReport}")
+            if (rows.any { it[3] == "FAIL" }) {
+                logger.lifecycle("Some coverage targets were missed. Please review the detailed report above.")
+            } else if (rows.any { it[3] == "PASS" }) {
+                logger.lifecycle("Great job! All tracked coverage metrics meet their targets.")
+            }
+            logger.lifecycle("=================================\n")
+        }
+    }
+
+    tasks.named("build") {
+        dependsOn jacocoReport
+    }
+
+    jacocoTestCoverageVerification {
+        dependsOn jacocoReport
+        violationRules {
+            rule {
+                enabled = true
+                element = 'BUNDLE'
+                // Bytecode-Anweisungen abgedeckt
+                limit {
+                    counter = 'INSTRUCTION'
+                    value = 'COVEREDRATIO'
+                    minimum = 0.14
+                }
+                // wie viele Quellcode-Zeilen abgedeckt
+                limit {
+                    counter = 'LINE'
+                    value = 'COVEREDRATIO'
+                    minimum = 0.13
+                }
+                // Verzweigungen (if/else, switch) abgedeckt; misst Logik-Abdeckung
+                limit {
+                    counter = 'BRANCH'
+                    value = 'COVEREDRATIO'
+                    minimum = 0.09
+                }
+            }
+        }
+    }
+
+    tasks.named("processResources") {
+        dependsOn(rootProject.tasks.writeVersion)
+    }
+
+    if (name == 'stirling-pdf') {
+        apply plugin: 'org.springdoc.openapi-gradle-plugin'
+
+        openApi {
+            apiDocsUrl = "http://localhost:8080/v1/api-docs"
+            outputDir = file("$projectDir")
+            outputFileName = "SwaggerDoc.json"
+            waitTimeInSeconds = 60 // Increase the wait time to 60 seconds
+        }
+
+        tasks.named("forkedSpringBootRun") {
+            dependsOn(":common:jar")
+            dependsOn(":proprietary:jar")
+        }
+
+        tasks.register("copySwaggerDoc", Copy) {
+            doNotTrackState("Writes SwaggerDoc.json to project root")
+            from(layout.projectDirectory.file("SwaggerDoc.json"))
+            into(rootProject.projectDir)
+            dependsOn("generateOpenApiDocs")
+        }
+
+        tasks.register("cleanSwaggerInBuild", Delete) {
+            doNotTrackState("Cleans up SwaggerDoc.json in build directory")
+            delete(layout.projectDirectory.file("SwaggerDoc.json"))
+            dependsOn("copySwaggerDoc")
+        }
+
+        tasks.named("copySwaggerDoc") {
+            finalizedBy("cleanSwaggerInBuild")
+        }
+
+        tasks.named("generateOpenApiDocs") {
+            finalizedBy("copySwaggerDoc")
+            doNotTrackState("OpenAPI plugin writes outside build directory")
+        }
+
+        tasks.named("bootRun") {
+            jvmArgs = [
+                "-XX:+UseG1GC",
+                "-XX:MaxGCPauseMillis=200",
+                "-XX:G1HeapRegionSize=4m",
+                "-XX:+ExplicitGCInvokesConcurrent",
+                "-XX:+UseStringDeduplication",
+                "-XX:+UseCompactObjectHeaders"
+            ]
+        }
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = "UTF-8"
+    if (!project.hasProperty("noSpotless")) {
+        dependsOn "spotlessApply"
+    }
+}
+
+gradle.taskGraph.whenReady { graph ->
+    if (project.hasProperty("noSpotless")) {
+        allprojects { scopedProject ->
+            scopedProject.tasks.matching { it.name.startsWith("spotless") }.configureEach {
+                enabled = false
+            }
+        }
+    }
+}
+
+def allProjects = ((subprojects as Set<Project>) + project) as Set<Project>
+
+licenseReport {
+    projects = allProjects
+    renderers = [new JsonReportRenderer()]
+    allowedLicensesFile = project.layout.projectDirectory.file("app/allowed-licenses.json").asFile
+    outputDir = project.layout.buildDirectory.dir("reports/dependency-license").get().asFile.path
+    configurations = [ "productionRuntimeClasspath", "runtimeClasspath" ]
+}
+
+// Configure the forked spring boot run task to properly delegate to the stirling-pdf module
+tasks.named('forkedSpringBootRun') {
+    dependsOn ':stirling-pdf:bootRun'
+    doFirst {
+        println "Delegating forkedSpringBootRun to :stirling-pdf:bootRun"
+    }
+}
+
+spotless {
+    yaml {
+        target '*.yml', '*.yaml'
+        trimTrailingWhitespace()
+        leadingTabsToSpaces()
+        endWithNewline()
+    }
+    format 'gradle', {
+        target 'build.gradle', 'settings.gradle', 'gradle/*.gradle', 'gradle/**/*.gradle'
+        trimTrailingWhitespace()
+        leadingTabsToSpaces()
+        endWithNewline()
+    }
+}
+
+sonar {
+    properties {
+        property "sonar.projectKey", "Stirling-Tools_Stirling-PDF"
+        property "sonar.organization", "stirling-tools"
+
+        property "sonar.exclusions", "**/build-wrapper-dump.json, **/src/main/java/org/apache/**, **/src/main/resources/static/pdfjs/**, **/src/main/resources/static/pdfjs-legacy/**, **/src/main/resources/static/js/thirdParty/**"
+        property "sonar.coverage.exclusions", "**/src/main/java/org/apache/**, **/src/main/resources/static/pdfjs/**, **/src/main/resources/static/pdfjs-legacy/**, **/src/main/resources/static/js/thirdParty/**"
+        property "sonar.cpd.exclusions", "**/src/main/java/org/apache/**, **/src/main/resources/static/pdfjs/**, **/src/main/resources/static/pdfjs-legacy/**, **/src/main/resources/static/js/thirdParty/**"
+    }
+}
+
+swaggerhubUpload {
+    // dependsOn = generateOpenApiDocs  // Depends on your task generating Swagger docs
+    api = "Stirling-PDF"  // The name of your API on SwaggerHub
+    owner = "${System.getenv().getOrDefault('SWAGGERHUB_USER', 'Frooodle')}"  // Your SwaggerHub username (or organization name)
+    version = project.version  // The version of your API
+    inputFile = file("SwaggerDoc.json")  // The path to your Swagger docs
+    token = "${System.getenv("SWAGGERHUB_API_KEY")}"  // Your SwaggerHub API key, passed as an environment variable
+    oas = "3.0.0"  // The version of the OpenAPI Specification you"re using
+}
+
+repositories {
+    if (!rootProject.ext.mavenUrl.isEmpty()) {
+        maven {
+            url = rootProject.ext.mavenUrl + '/releases'
+            credentials(PasswordCredentials) {
+                username = rootProject.ext.username
+                password = rootProject.ext.password
+            }
+            authentication {
+                basic(BasicAuthentication)
+            }
+            allowInsecureProtocol = true
+        }
+    }
+    maven { url = "https://build.shibboleth.net/maven/releases" }
+    mavenCentral()
+}
+
+dependencies {
+    implementation project(':stirling-pdf')
+    implementation project(':common')
+    if (rootProject.ext.isSecurityDisabled()) {
+        implementation project(':proprietary')
+    }
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+
+    testImplementation platform("com.squareup.okhttp3:okhttp-bom:5.3.2")
+    testImplementation "com.squareup.okhttp3:mockwebserver"
 }
 
 tasks.named("test") {
     useJUnitPlatform()
 }
 
-task printVersion {
-    println project.version
+// Make sure all relevant processes depend on writeVersion
+processResources.dependsOn(writeVersion)
+
+tasks.register('printVersion') {
+    doLast {
+        println project.version
+    }
+}
+
+tasks.named('bootRun') {
+    group = 'application'
+    description = 'Delegates to :stirling-pdf:bootRun'
+    dependsOn ':stirling-pdf:bootRun'
+
+    doFirst {
+        println "Delegating to :stirling-pdf:bootRun"
+    }
+}
+
+tasks.named('build') {
+    group = 'build'
+    description = 'Delegates to :stirling-pdf:bootJar'
+    dependsOn ':stirling-pdf:bootJar', 'buildRestartHelper', 'syncAppVersion'
+
+    doFirst {
+        println "Delegating to :stirling-pdf:bootJar"
+    }
+}
+
+// Task to compile RestartHelper.java
+tasks.register('compileRestartHelper', JavaCompile) {
+    group = 'build'
+    description = 'Compiles the RestartHelper utility'
+
+    source = fileTree(dir: 'scripts', include: 'RestartHelper.java')
+    classpath = files()
+    destinationDirectory = layout.buildDirectory.dir("restart-helper-classes")
+    def restartMajorVersion = project.ext.modernJavaVersion
+    def restartCompatibility = JavaVersion.toVersion(restartMajorVersion.toString())
+    sourceCompatibility = restartCompatibility
+    targetCompatibility = restartCompatibility
+    options.release.set(restartMajorVersion)
+}
+
+// Task to create restart-helper.jar
+tasks.register('buildRestartHelper', Jar) {
+    group = 'build'
+    description = 'Builds the restart-helper.jar'
+    dependsOn 'compileRestartHelper'
+
+    from layout.buildDirectory.dir("restart-helper-classes")
+    archiveFileName = 'restart-helper.jar'
+    destinationDirectory = layout.buildDirectory.dir("libs")
+
+    manifest {
+        attributes 'Main-Class': 'RestartHelper'
+    }
+
+    doLast {
+        println "restart-helper.jar created at: ${destinationDirectory.get()}/restart-helper.jar"
+    }
 }
